@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace EBCDIC.Entities
 {
-    public class PdormvdsRecord
+    public class PdormvdsRecord : IDbScriptRecord
     {
         // Always "04" for PDORMVDS
         public string PdORemovedCode6Discrep { get; set; }  // offset 2

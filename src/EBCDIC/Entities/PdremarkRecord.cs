@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace EBCDIC.Entities
 {
-    public class PdremarkRecord
+    public class PdremarkRecord : IDbScriptRecord
     {
         // Always "22" for PDREMARK
         public int PdRemarkNumber { get; set; }  // PIC 9(3)

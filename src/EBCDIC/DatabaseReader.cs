@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -32,7 +33,9 @@ namespace EBCDIC
         {
             if (!_fileInfo.Exists) throw new FileNotFoundException($"File {_fileInfo.FullName} not found.");
             if (processRecord == null) throw new ArgumentNullException(nameof(processRecord));
-
+            var rowCount = 0;
+            var sw = new Stopwatch();
+            sw.Start();
             try
             {
                 using (FileStream fs = new FileStream(_fileInfo.FullName, FileMode.Open, FileAccess.Read))
@@ -53,9 +56,13 @@ namespace EBCDIC
                             string recordId = _encoding.GetString(recordBytes, 0, 2);
 
                             processRecord(recordId, _encoding, recordBytes);
+                            rowCount++;
                         }
                     }
                 }
+                sw.Stop();
+                _logger.LogInformation($"Processed {rowCount} records.");
+                _logger.LogInformation($"Elapsed time: {sw.Elapsed}");
             }
             catch (Exception ex)
             {

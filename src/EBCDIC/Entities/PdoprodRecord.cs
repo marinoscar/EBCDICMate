@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace EBCDIC.Entities
 {
-    public class PdoprodRecord
+    public class PdoprodRecord : IDbScriptRecord
     {
         public string CorrectedReportFlag { get; set; }      // 'N' or 'Y'
         public decimal ProductionAmount { get; set; }        // from COMP-3

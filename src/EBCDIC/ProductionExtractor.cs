@@ -91,12 +91,67 @@ namespace EBCDIC
                     _logger.LogInformation("Processing PDODSPRK record.");
                     ExtractPdodsprk23(recordId, encoding, recordBytes);
                     break;
+                case "24":
+                    _logger.LogInformation("Processing PDOCMGRK record.");
+                    ExtractPdocmgrk24(recordId, encoding, recordBytes);
+                    break;
                 // Add more cases for other record types
                 default:
                     // Log unknown record ID
                     _logger.LogWarning($"Unknown record ID: {recordId}");
                     break;
             }
+        }
+
+        //24
+        public static PdocmgrkRecord ExtractPdocmgrk24(
+        string recordId,
+        Encoding encoding,
+        byte[] recordBytes)
+        {
+            // 1) Validate
+            if (recordId != "24")
+            {
+                throw new InvalidOperationException(
+                    $"Not a PDOCMGRK record. Expected '24', got '{recordId}'.");
+            }
+
+            // 2) Create entity
+            var record = new PdocmgrkRecord();
+
+            // 3) Parse date components
+            // PD-OIL-CMG-RMK-CENTURY  (offset [2..3])
+            string centuryStr = encoding.GetString(recordBytes, 2, 2);
+            if (short.TryParse(centuryStr, out short cVal))
+                record.PdOilCmgRmkCentury = cVal;
+
+            // PD-OIL-CMG-RMK-YEAR (offset [4..5])
+            string yearStr = encoding.GetString(recordBytes, 4, 2);
+            if (short.TryParse(yearStr, out short yVal))
+                record.PdOilCmgRmkYear = yVal;
+
+            // PD-OIL-CMG-RMK-MONTH (offset [6..7])
+            string monthStr = encoding.GetString(recordBytes, 6, 2);
+            if (byte.TryParse(monthStr, out byte mVal))
+                record.PdOilCmgRmkMonth = mVal;
+
+            // PD-OIL-CMG-RMK-DAY (offset [8..9])
+            string dayStr = encoding.GetString(recordBytes, 8, 2);
+            if (byte.TryParse(dayStr, out byte dVal))
+                record.PdOilCmgRmkDay = dVal;
+
+            // 4) Parse 40-char remark text (offset [10..49])
+            // Limit read so we don't exceed recordBytes if shorter
+            int textLen = Math.Min(40, recordBytes.Length - 10);
+            if (textLen < 0) textLen = 0;
+            record.PdOilCmgRemarkText = encoding
+                .GetString(recordBytes, 10, textLen)
+                .TrimEnd();
+
+            // [50..61] => filler (12 bytes), ignoring
+            // Possibly more filler if total record is 60 or 102, etc.
+
+            return record;
         }
 
         //23

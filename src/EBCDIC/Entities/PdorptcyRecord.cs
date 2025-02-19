@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace EBCDIC.Entities
 {
-    public class PdorptcyRecord
+    public class PdorptcyRecord : IDbScriptRecord
     {
         // Always "02" for PDORPTCY (Oil Reporting Cycle)
         public int PdOilRptCycleKey { get; set; }            // PIC 9(04)

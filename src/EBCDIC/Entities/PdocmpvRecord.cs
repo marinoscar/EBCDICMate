@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace EBCDIC.Entities
 {
-    public class PdocmpvRecord
+    public class PdocmpvRecord : IDbScriptRecord
     {
         // Always "12" for PDOCMPV
         public short PdOilCommPrevPostingYear { get; set; } // PIC 9(04)

@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace EBCDIC.Entities
 {
-    public class PdooebRecord
+    public class PdooebRecord : IDbScriptRecord
     {
         // Always "11" for PDOOEB
         public decimal PdCmOldestEomBal { get; set; } // S9(09) COMP-3

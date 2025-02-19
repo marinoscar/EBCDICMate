@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace EBCDIC.Entities
 {
-    public class PdocmpmtRecord
+    public class PdocmpmtRecord : IDbScriptRecord
     {
         // Record ID always "08" (Commingle Permit Segment)
         public short PdOilCommingleDistrict { get; set; }    // 9(2)

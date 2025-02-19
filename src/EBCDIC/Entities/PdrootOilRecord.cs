@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace EBCDIC.Entities
 {
-    public class PdrootOilRecord
+    public class PdrootOilRecord : IDbScriptRecord
     {
         // Record ID is always "01" for PDROOT_OIL.
         public string PdOilCode { get; set; }               // CHAR(1)  e.g. "O"

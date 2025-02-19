@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace EBCDIC.Entities
 {
-    public class PdgprodRecord
+    public class PdgprodRecord : IDbScriptRecord
     {
         // Record ID always "15" for this segment
         // Gas Production Data

@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace EBCDIC.Entities
 {
-    public class PdgrptcyRecord
+    public class PdgrptcyRecord : IDbScriptRecord
     {
         // Record ID always "14" for PDGRPTCY
         public int GasReportCycleKey { get; set; }  // PIC 9(4)

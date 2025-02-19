@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace EBCDIC.Entities
 {
-    public class PdodsprkRecord
+    public class PdodsprkRecord : IDbScriptRecord
     {
         // Always "23" for PDODSPRK
         public short PdOilRmkCentury { get; set; }  // 9(02)

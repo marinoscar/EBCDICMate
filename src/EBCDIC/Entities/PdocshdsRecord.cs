@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace EBCDIC.Entities
 {
-    public class PdocshdsRecord
+    public class PdocshdsRecord : IDbScriptRecord
     {
         // Record ID always "06" for PDOCSHDS
         public short PdCshDispositionCode { get; set; }    // PIC 9(2)

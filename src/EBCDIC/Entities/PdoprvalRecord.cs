@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace EBCDIC.Entities
 {
-    public class PdoprvalRecord
+    public class PdoprvalRecord : IDbScriptRecord
     {
         // Always "13" for PDOPRVAL
         public decimal PdOilAllowDailyBblsHist { get; set; } // S9(09) COMP-3

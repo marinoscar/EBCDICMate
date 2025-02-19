@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace EBCDIC.Entities
 {
-    public class PdocmodsRecord
+    public class PdocmodsRecord : IDbScriptRecord
     {
         // Record ID always "10"
         public short PdOilOlcoDispositionCode { get; set; }   // PIC 9(02)

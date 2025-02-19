@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace EBCDIC.Entities
 {
-    public class PdocmprdRecord
+    public class PdocmprdRecord : IDbScriptRecord
     {
         // Always "09" for PDOCMPRD
         public decimal PdOilCommProductionAmt { get; set; }
