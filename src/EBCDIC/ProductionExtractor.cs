@@ -26,8 +26,23 @@ namespace EBCDIC
                 case "01":
                     ExtractPdrootOil01(recordId, encoding, recordBytes);
                     break;
+                case "02":
+                    ExtractPdorptcy02(recordId, encoding, recordBytes);
+                    break;
                 case "03":
                     ExtractPdoprod03(recordId, encoding, recordBytes);
+                    break;
+                case "04":
+                    ExtractPdormvds04(recordId, encoding, recordBytes);
+                    break;
+                case "05":
+                    ExtractPdodsp05(recordId, encoding, recordBytes);
+                    break;
+                case "11":
+                    ExtractPdgrptcy14(recordId, encoding, recordBytes);
+                    break;
+                case "13":
+                    ExtractPdoprval13(recordId, encoding, recordBytes);
                     break;
                 case "15":
                     ExtractPdgprod15(recordId, encoding, recordBytes);
@@ -38,6 +53,136 @@ namespace EBCDIC
                     _logger.LogWarning($"Unknown record ID: {recordId}");
                     break;
             }
+        }
+
+        //05
+        public static PdodspRecord ExtractPdodsp05(
+        string recordId,
+        Encoding encoding,
+        byte[] recordBytes)
+        {
+            // 1) Validate
+            if (recordId != "05")
+                throw new InvalidOperationException(
+                    $"Not a PDODSP record. Expected '05', got '{recordId}'.");
+
+            // 2) Create entity
+            var record = new PdodspRecord();
+
+            // 3) Parse fields
+            // Per the PDF snippet for PDODSP:
+            //  [0..1]  => "05"  (RRC_TAPE_RECORD_ID)
+            //  [2..3]  => PD-OIL-DISPOSITION-CODE (PIC 9(2))
+            //  [4..8]  => PD-OIL-DISPOSITION-AMOUNT (5 bytes COMP-3)
+            //  [9..end] => filler
+            string codeStr = encoding.GetString(recordBytes, 2, 2);
+            if (short.TryParse(codeStr, out short codeVal))
+                record.PdOilDispositionCode = codeVal;
+
+            // Decode the COMP-3 amount (5 bytes => offset 4..8)
+            record.PdOilDispositionAmount = DecodeComp3(recordBytes, 4, 5);
+
+            return record;
+        }
+
+        //04
+        public static PdormvdsRecord ExtractPdormvds04(
+        string recordId,
+        Encoding encoding,
+        byte[] recordBytes)
+        {
+            // Validate
+            if (recordId != "04")
+            {
+                throw new InvalidOperationException(
+                    $"Not a PDORMVDS record. Expected '04', got '{recordId}'.");
+            }
+
+            // Create entity
+            var record = new PdormvdsRecord();
+
+            // According to the PDF snippet:
+            //   [0..1]  => "04"
+            //   [2]     => PD-O-REMOVED-CODE-6-DISCREP    X(1)
+            //   [3]     => PD-O-REMOVED-R-3-DISCREP       X(1)
+            //   [4]     => PD-O-REMOVED-NET-OIL-DISCREP   X(1)
+            //   [5]     => PD-O-REMOVED-LSE-SEV-DISCREP   X(1)
+            //   [6]     => PD-O-REMOVED-OTHER-DISCREP     X(1)
+            //   [7]     => PD-O-REMOVED-LOST-OIL-DISCREP  X(1)
+            //   [8]     => PD-O-REMOVED-CIRC-OIL-DISCREP  X(1)
+            //   [9]     => PD-O-REMOVED-PRD-INACT-DISCREP X(1)
+            //   [10]    => PD-O-REMOVED-FILE-COMM-DISCREP X(1)
+            //   [11..end] => filler
+
+            record.PdORemovedCode6Discrep = encoding.GetString(recordBytes, 2, 1);
+            record.PdORemovedR3Discrep = encoding.GetString(recordBytes, 3, 1);
+            record.PdORemovedNetOilDiscrep = encoding.GetString(recordBytes, 4, 1);
+            record.PdORemovedLseSevDiscrep = encoding.GetString(recordBytes, 5, 1);
+            record.PdORemovedOtherDiscrep = encoding.GetString(recordBytes, 6, 1);
+            record.PdORemovedLostOilDiscrep = encoding.GetString(recordBytes, 7, 1);
+            record.PdORemovedCircOilDiscrep = encoding.GetString(recordBytes, 8, 1);
+            record.PdORemovedPrdInactDiscrep = encoding.GetString(recordBytes, 9, 1);
+            record.PdORemovedFileCommDiscrep = encoding.GetString(recordBytes, 10, 1);
+
+            return record;
+        }
+
+        //02
+        public static PdorptcyRecord ExtractPdorptcy02(
+        string recordId,
+        Encoding encoding,
+        byte[] recordBytes)
+        {
+            // 1) Validate recordId
+            if (recordId != "02")
+            {
+                throw new InvalidOperationException(
+                    $"Not a PDORPTCY record. Expected '02', got '{recordId}'.");
+            }
+
+            // 2) Create the entity
+            var record = new PdorptcyRecord();
+
+            // 3) Parse numeric fields
+            // PD_OIL_RPT_CYCLE_KEY (offset 3..6, 4 digits)
+            string cycleKeyStr = encoding.GetString(recordBytes, 3, 4);
+            if (int.TryParse(cycleKeyStr, out int parsedCycleKey))
+                record.PdOilRptCycleKey = parsedCycleKey;
+
+            // Next are COMP-3 fields (5 bytes each)
+            record.PdDailyOilProratedAllow = DecodeComp3(recordBytes, 7, 5);
+            record.PdDailyOilExemptAllow = DecodeComp3(recordBytes, 12, 5);
+            record.PdDailyCshProratedAllow = DecodeComp3(recordBytes, 17, 5);
+            record.PdDailyCshExemptAllow = DecodeComp3(recordBytes, 22, 5);
+            record.PdOilAllowableCycleBbls = DecodeComp3(recordBytes, 27, 5);
+            record.PdCshLimitCycleMcf = DecodeComp3(recordBytes, 32, 5);
+
+            // Effective Date: year(4), month(2), day(2)
+            string effYearStr = encoding.GetString(recordBytes, 37, 4);
+            string effMonthStr = encoding.GetString(recordBytes, 41, 2);
+            string effDayStr = encoding.GetString(recordBytes, 43, 2);
+
+            if (short.TryParse(effYearStr, out short effYr)) record.PdOilAllowEffYear = effYr;
+            if (byte.TryParse(effMonthStr, out byte effMo)) record.PdOilAllowEffMonth = effMo;
+            if (byte.TryParse(effDayStr, out byte effDy)) record.PdOilAllowEffDay = effDy;
+
+            // Issue Date: year(4), month(2), day(2)
+            string issYearStr = encoding.GetString(recordBytes, 45, 4);
+            string issMonthStr = encoding.GetString(recordBytes, 49, 2);
+            string issDayStr = encoding.GetString(recordBytes, 51, 2);
+
+            if (short.TryParse(issYearStr, out short issYr)) record.PdOilAllowIssYear = issYr;
+            if (byte.TryParse(issMonthStr, out byte issMo)) record.PdOilAllowIssMonth = issMo;
+            if (byte.TryParse(issDayStr, out byte issDy)) record.PdOilAllowIssDay = issDy;
+
+            // Additional COMP-3 fields
+            record.PdOilEndingBalance = DecodeComp3(recordBytes, 53, 5);
+            record.PdPresentOilStatus = DecodeComp3(recordBytes, 58, 5);
+            record.PdPresentCsghdStatus = DecodeComp3(recordBytes, 63, 5);
+            record.PdAdjustedOilStatus = DecodeComp3(recordBytes, 68, 5);
+            record.PdAdjustedCsghdStatus = DecodeComp3(recordBytes, 73, 5);
+
+            return record;
         }
 
         //03
@@ -223,6 +368,166 @@ namespace EBCDIC
             record.RemovedConInsufDiscrep = encoding.GetString(recordBytes, 44, 1);
             record.RemovedCode3Discrep = encoding.GetString(recordBytes, 45, 1);
 
+            return record;
+        }
+
+
+        //14
+        public static PdgrptcyRecord ExtractPdgrptcy14(
+        string recordId,
+        Encoding encoding,
+        byte[] recordBytes)
+        {
+            // 1) Validate
+            if (recordId != "14")
+            {
+                throw new InvalidOperationException(
+                    $"Not a PDGRPTCY record. Expected '14', got '{recordId}'.");
+            }
+
+            // 2) Create the entity
+            var record = new PdgrptcyRecord();
+
+            // Offsets (0-based), from the PDF snippet:
+            //   [0..1]   => RRC-TAPE-RECORD-ID   ("14")
+            //   [3..6]   => PD-GAS-REPORT-CYCLE-KEY (4 digits)
+            //   [7..11]  => PD-GAS-BALANCING-ALLOW-AMT (5 bytes COMP-3)
+            //   [12..13] => PD-GAS-BALANCING-ALLOW-CODE (2 chars, X(2))
+            //   [14]     => PD-GAS-EXCEPTION-TWICE-ALLOW (1 char)
+            //   [15]     => PD-GAS-HIGHEST-DAILY-CYCLES (1 digit)
+            //   [16..20] => PD-GAS-EXCEPT-HIGH-DAY-AMOUNT (5 bytes COMP-3)
+            //   [21..23] => PD-GAS-REDUCED-RATE (3 chars, PIC 9(03))
+            //   [24]     => PD-GAS-REDUCED-RATE-CODE (1 char)
+            //   [25..29] => PD-COND-ENDING-BALANCE (5 bytes COMP-3)
+            //   [30..34] => PD-G9-INJECTION-AMOUNT (5 bytes COMP-3)
+            //   [35..39] => PD-GAS-CUMU-CYCLE-STATUS (5 bytes COMP-3)
+            //   [40..44] => PD-GAS-CUMULATIVE-OVERAGE (5 bytes COMP-3)
+            //   [45..49] => PD-GAS-OVERAGE-TRANSFER (5 bytes COMP-3)
+            //   [50]     => PD-GAS-NO-PAST-PRODUCTION-FLAG (1 char)
+            //   [51]     => PD-GAS-NO-HIGHEST-DAILY-FLAG (1 char)
+            //   [52]     => PD-GAS-CANCEL-UNDERAGE-FLAG (1 char)
+            //   [53]     => PD-GAS-PAST-PRODUCTION-CYCLES (1 digit)
+            //   [54..58] => PD-GAS-EXCEPT-PAST-PROD-AMOUNT (5 bytes COMP-3)
+            //   [59..63] => PD-LIQUID-CUMU-CYCLE-STATUS (5 bytes COMP-3)
+            //   [64..68] => PD-G9-PLANT-LIQUID (5 bytes COMP-3)
+            //   [69]     => PD-G9-INJECTION-CREDIT-CODE (1 char)
+            //   [70]     => PD-GAS-ON-SHUT-IN-LIST-FLAG (1 char)
+            //   [71..75] => PD-WELL-CAPABILITY (5 bytes COMP-3)
+            //   [76..80] => PD-WELL-MONTHLY-CAPABILITY (5 bytes COMP-3)
+            //   [81..end] => filler
+
+            // 3) Parse fields
+            // PD_GAS_REPORT_CYCLE_KEY (offset 3..6)
+            string cycleKeyStr = encoding.GetString(recordBytes, 3, 4);
+            if (int.TryParse(cycleKeyStr, out int cycleKey))
+                record.GasReportCycleKey = cycleKey;
+
+            record.GasBalancingAllowAmt = DecodeComp3(recordBytes, 7, 5);
+
+            record.GasBalancingAllowCode = encoding.GetString(recordBytes, 12, 2);
+
+            record.GasExceptionTwiceAllow = encoding.GetString(recordBytes, 14, 1);
+
+            // Highest Daily Cycles (offset 15, 1 digit)
+            string hdcStr = encoding.GetString(recordBytes, 15, 1);
+            if (byte.TryParse(hdcStr, out byte hdcVal))
+                record.GasHighestDailyCycles = hdcVal;
+
+            record.GasExceptHighDayAmount = DecodeComp3(recordBytes, 16, 5);
+
+            // GasReducedRate (offset 21..23, 3 digits)
+            string reducedRateStr = encoding.GetString(recordBytes, 21, 3);
+            if (short.TryParse(reducedRateStr, out short rrVal))
+                record.GasReducedRate = rrVal;
+
+            record.GasReducedRateCode = encoding.GetString(recordBytes, 24, 1);
+
+            record.CondEndingBalance = DecodeComp3(recordBytes, 25, 5);
+            record.G9InjectionAmount = DecodeComp3(recordBytes, 30, 5);
+            record.GasCumuCycleStatus = DecodeComp3(recordBytes, 35, 5);
+            record.GasCumulativeOverage = DecodeComp3(recordBytes, 40, 5);
+            record.GasOverageTransfer = DecodeComp3(recordBytes, 45, 5);
+
+            record.GasNoPastProductionFlag = encoding.GetString(recordBytes, 50, 1);
+            record.GasNoHighestDailyFlag = encoding.GetString(recordBytes, 51, 1);
+            record.GasCancelUnderageFlag = encoding.GetString(recordBytes, 52, 1);
+
+            // PD-GAS-PAST-PRODUCTION-CYCLES (offset 53, 1 digit)
+            string ppcStr = encoding.GetString(recordBytes, 53, 1);
+            if (byte.TryParse(ppcStr, out byte ppcVal))
+                record.GasPastProductionCycles = ppcVal;
+
+            record.GasExceptPastProdAmount = DecodeComp3(recordBytes, 54, 5);
+            record.LiquidCumuCycleStatus = DecodeComp3(recordBytes, 59, 5);
+            record.G9PlantLiquid = DecodeComp3(recordBytes, 64, 5);
+
+            record.G9InjectionCreditCode = encoding.GetString(recordBytes, 69, 1);
+            record.GasOnShutInListFlag = encoding.GetString(recordBytes, 70, 1);
+
+            record.WellCapability = DecodeComp3(recordBytes, 71, 5);
+            record.WellMonthlyCapability = DecodeComp3(recordBytes, 76, 5);
+
+            return record;
+        }
+
+        //13
+        public static PdoprvalRecord ExtractPdoprval13(
+        string recordId,
+        Encoding encoding,
+        byte[] recordBytes)
+        {
+            // 1) Validate
+            if (recordId != "13")
+            {
+                throw new InvalidOperationException(
+                    $"Not a PDOPRVAL record. Expected '13', got '{recordId}'.");
+            }
+
+            var record = new PdoprvalRecord();
+
+            // Offsets from the PDF (example for a 102-byte record):
+            //  [0..1]   => RRC-TAPE-RECORD-ID ("13")
+            //  [2..6]   => PD-OIL-ALLOW-DAILY-BBLS-HIST (5 bytes, S9(09) COMP-3)
+            //  [7..11]  => PD-GAS-LIMIT-DAILY-MCF-HIST  (5 bytes, S9(09) COMP-3)
+            //  [12..15] => PD-OIL-ALLOW-EFF-YEAR-HIST   (4 digits)
+            //  [16..17] => PD-OIL-ALLOW-EFF-MONTH-HIST  (2 digits)
+            //  [18..19] => PD-OIL-ALLOW-EFF-DAY-HIST    (2 digits)
+            //  [20..23] => PD-OIL-ALLOW-ISS-YEAR-HIST   (4 digits)
+            //  [24..25] => PD-OIL-ALLOW-ISS-MONTH-HIST  (2 digits)
+            //  [26..27] => PD-OIL-ALLOW-ISS-DAY-HIST    (2 digits)
+            //  [28..32] => PD-OIL-ALLOW-CYCLE-BBLS-HIST (5 bytes, S9(09) COMP-3)
+            //  [33..37] => PD-GAS-LIMIT-CYCLE-MCF-HIST  (5 bytes, S9(09) COMP-3)
+            //  [38..51] => filler (14 bytes)
+            //  [52..101]=> RRC-TAPE-FILLER (50 bytes)
+
+            // 2) Parse COMP-3 fields
+            record.PdOilAllowDailyBblsHist = DecodeComp3(recordBytes, 2, 5);
+            record.PdGasLimitDailyMcfHist = DecodeComp3(recordBytes, 7, 5);
+
+            // 3) Dates for EFF date
+            string effYearStr = encoding.GetString(recordBytes, 12, 4);
+            string effMonthStr = encoding.GetString(recordBytes, 16, 2);
+            string effDayStr = encoding.GetString(recordBytes, 18, 2);
+
+            // Convert them
+            if (short.TryParse(effYearStr, out short effYr)) record.PdOilAllowEffYearHist = effYr;
+            if (byte.TryParse(effMonthStr, out byte effMo)) record.PdOilAllowEffMonthHist = effMo;
+            if (byte.TryParse(effDayStr, out byte effDy)) record.PdOilAllowEffDayHist = effDy;
+
+            // 4) Dates for ISSUE date
+            string issYearStr = encoding.GetString(recordBytes, 20, 4);
+            string issMonthStr = encoding.GetString(recordBytes, 24, 2);
+            string issDayStr = encoding.GetString(recordBytes, 26, 2);
+
+            if (short.TryParse(issYearStr, out short issYr)) record.PdOilAllowIssYearHist = issYr;
+            if (byte.TryParse(issMonthStr, out byte issMo)) record.PdOilAllowIssMonthHist = issMo;
+            if (byte.TryParse(issDayStr, out byte issDy)) record.PdOilAllowIssDayHist = issDy;
+
+            // 5) Additional COMP-3 fields
+            record.PdOilAllowCycleBblsHist = DecodeComp3(recordBytes, 28, 5);
+            record.PdGasLimitCycleMcfHist = DecodeComp3(recordBytes, 33, 5);
+
+            // The rest is filler
             return record;
         }
 
