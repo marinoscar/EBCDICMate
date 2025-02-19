@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "EBCDIC": {
+      "commandName": "Project",
+      "commandLineArgs": "\"C:\\Users\\CH489GT\\Downloads\\PDF100\\PDF100.ebc\""
+    }
+  }
+}
