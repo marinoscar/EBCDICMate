@@ -38,6 +38,12 @@ namespace EBCDIC
                 case "05":
                     ExtractPdodsp05(recordId, encoding, recordBytes);
                     break;
+                case "06":
+                    ExtractPdocshds06(recordId, encoding, recordBytes);
+                    break;
+                case "07":
+                    ExtractPdoprpv07(recordId, encoding, recordBytes);
+                    break;
                 case "11":
                     ExtractPdgrptcy14(recordId, encoding, recordBytes);
                     break;
@@ -53,6 +59,85 @@ namespace EBCDIC
                     _logger.LogWarning($"Unknown record ID: {recordId}");
                     break;
             }
+        }
+
+        //07
+        public static PdoprpvRecord ExtractPdoprpv07(
+        string recordId,
+        Encoding encoding,
+        byte[] recordBytes)
+        {
+            // 1) Validate
+            if (recordId != "07")
+            {
+                throw new InvalidOperationException(
+                    $"Not a PDOPRPV record. Expected '07', got '{recordId}'.");
+            }
+
+            // 2) Create the entity
+            var record = new PdoprpvRecord();
+
+            // 3) Parse fields
+            // [2..5]: PD_OIL_PREV_POSTING_YEAR (4 digits)
+            string yearStr = encoding.GetString(recordBytes, 2, 4);
+            if (short.TryParse(yearStr, out short parsedYear))
+                record.PdOilPrevPostingYear = parsedYear;
+
+            // [6..7]: PD_OIL_PREV_POSTING_MONTH (2 digits)
+            string monthStr = encoding.GetString(recordBytes, 6, 2);
+            if (byte.TryParse(monthStr, out byte parsedMonth))
+                record.PdOilPrevPostingMonth = parsedMonth;
+
+            // [8..9]: PD_OIL_PREV_POSTING_DAY (2 digits)
+            string dayStr = encoding.GetString(recordBytes, 8, 2);
+            if (byte.TryParse(dayStr, out byte parsedDay))
+                record.PdOilPrevPostingDay = parsedDay;
+
+            // [10..12]: PD_OIL_PREV_BATCH_NUMBER (3 chars)
+            record.PdOilPrevBatchNumber = encoding.GetString(recordBytes, 10, 3);
+
+            // [13..16]: PD_OIL_PREV_ITEM_NUMBER (4 digits)
+            string itemStr = encoding.GetString(recordBytes, 13, 4);
+            if (int.TryParse(itemStr, out int parsedItem))
+                record.PdOilPrevItemNumber = parsedItem;
+
+            // [17]: PD_OIL_PREV_CHANGED_FLAG (X(1)) => 'C' or space
+            record.PdOilPrevChangedFlag = encoding.GetString(recordBytes, 17, 1);
+
+            // [18]: PD_OIL_PREV_FILED_BY_EDI_FLAG (X(1)) => 'Y' or space
+            record.PdOilPrevFiledByEdiFlag = encoding.GetString(recordBytes, 18, 1);
+
+            return record;
+        }
+
+        //06
+        public static PdocshdsRecord ExtractPdocshds06(
+        string recordId,
+        Encoding encoding,
+        byte[] recordBytes)
+        {
+            // 1) Validate
+            if (recordId != "06")
+                throw new InvalidOperationException(
+                    $"Not a PDOCSHDS record. Expected '06', got '{recordId}'.");
+
+            // 2) Create entity
+            var record = new PdocshdsRecord();
+
+            // 3) Parse fields
+            // According to the PDF for PDOCSHDS:
+            //   [0..1] => "06" (RRC_TAPE_RECORD_ID)
+            //   [2..3] => PD-CSH-DISPOSITION-CODE (PIC 9(2))
+            //   [4..8] => PD-CSH-DISPOSITION-AMOUNT (S9(09) COMP-3, 5 bytes)
+            //   [9..end] => filler
+
+            string codeStr = encoding.GetString(recordBytes, 2, 2);
+            if (short.TryParse(codeStr, out short codeVal))
+                record.PdCshDispositionCode = codeVal;
+
+            record.PdCshDispositionAmt = DecodeComp3(recordBytes, 4, 5);
+
+            return record;
         }
 
         //05
