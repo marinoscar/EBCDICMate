@@ -44,11 +44,26 @@ namespace EBCDIC
                 case "07":
                     ExtractPdoprpv07(recordId, encoding, recordBytes);
                     break;
+                case "08":
+                    ExtractPdocmpmt08(recordId, encoding, recordBytes);
+                    break;
+                case "09":
+                    ExtractPdocmprd09(recordId, encoding, recordBytes);
+                    break;
+                case "10":
+                    ExtractPdocmods10(recordId, encoding, recordBytes);
+                    break;
                 case "11":
-                    ExtractPdgrptcy14(recordId, encoding, recordBytes);
+                    ExtractPdooeb11(recordId, encoding, recordBytes);
+                    break;
+                case "12":
+                    ExtractPdocmpv12(recordId, encoding, recordBytes);
                     break;
                 case "13":
                     ExtractPdoprval13(recordId, encoding, recordBytes);
+                    break;
+                case "14":
+                    ExtractPdgrptcy14(recordId, encoding, recordBytes);
                     break;
                 case "15":
                     ExtractPdgprod15(recordId, encoding, recordBytes);
@@ -59,6 +74,239 @@ namespace EBCDIC
                     _logger.LogWarning($"Unknown record ID: {recordId}");
                     break;
             }
+        }
+
+        //12
+        public static PdocmpvRecord ExtractPdocmpv12(
+        string recordId,
+        Encoding encoding,
+        byte[] recordBytes)
+        {
+            // 1) Validate
+            if (recordId != "12")
+            {
+                throw new InvalidOperationException(
+                    $"Not a PDOCMPV record. Expected '12', got '{recordId}'.");
+            }
+
+            // 2) Create the entity
+            var record = new PdocmpvRecord();
+
+            // 3) Parse date fields
+            // [2..5] => PD-OIL-COMM-PREV-POSTING-YEAR (4 digits)
+            string yearStr = encoding.GetString(recordBytes, 2, 4);
+            if (short.TryParse(yearStr, out short parsedYear))
+                record.PdOilCommPrevPostingYear = parsedYear;
+
+            // [6..7] => PD-OIL-COMM-PREV-POSTING-MONTH (2 digits)
+            string monthStr = encoding.GetString(recordBytes, 6, 2);
+            if (byte.TryParse(monthStr, out byte parsedMonth))
+                record.PdOilCommPrevPostingMonth = parsedMonth;
+
+            // [8..9] => PD-OIL-COMM-PREV-POSTING-DAY (2 digits)
+            string dayStr = encoding.GetString(recordBytes, 8, 2);
+            if (byte.TryParse(dayStr, out byte parsedDay))
+                record.PdOilCommPrevPostingDay = parsedDay;
+
+            // [10..12] => PD-OIL-COMM-PREV-BATCH-NUMBER (3 chars)
+            record.PdOilCommPrevBatchNumber = encoding.GetString(recordBytes, 10, 3);
+
+            // [13..16] => PD-OIL-COMM-PREV-ITEM-NUMBER (4 digits)
+            string itemStr = encoding.GetString(recordBytes, 13, 4);
+            if (int.TryParse(itemStr, out int parsedItem))
+                record.PdOilCommPrevItemNumber = parsedItem;
+
+            // [17] => PD-OIL-COMM-PREV-CHANGED-FLAG (X(1))
+            record.PdOilCommPrevChangedFlag = encoding.GetString(recordBytes, 17, 1);
+
+            // [18] => PD-OIL-COMM-PREV-EDI-FLAG (X(1))
+            record.PdOilCommPrevEdiFlag = encoding.GetString(recordBytes, 18, 1);
+
+            // filler at [19..21], ignoring
+
+            return record;
+        }
+
+        //11
+        public static PdooebRecord ExtractPdooeb11(
+        string recordId,
+        Encoding encoding,
+        byte[] recordBytes)
+        {
+            // 1) Validate
+            if (recordId != "11")
+            {
+                throw new InvalidOperationException(
+                    $"Not a PDOOEB record. Expected '11', got '{recordId}'.");
+            }
+
+            // 2) Create the entity
+            var record = new PdooebRecord();
+
+            // Based on the PDF snippet for PDOOEB (0-based offsets):
+            //   [0..1] => "11" (RRC_TAPE_RECORD_ID)
+            //   [2..6] => PD-CM-OLDEST-EOM-BAL (S9(09) COMP-3, 5 bytes)
+            //   [7..end] => filler
+
+            record.PdCmOldestEomBal = DecodeComp3(recordBytes, 2, 5);
+
+            return record;
+        }
+
+        //10
+        public static PdocmodsRecord ExtractPdocmods10(
+        string recordId,
+        Encoding encoding,
+        byte[] recordBytes)
+        {
+            // 1) Validate
+            if (recordId != "10")
+            {
+                throw new InvalidOperationException(
+                    $"Not a PDOCMODS record. Expected '10', got '{recordId}'.");
+            }
+
+            // 2) Create the entity
+            var record = new PdocmodsRecord();
+
+            // According to the PDF snippet for PDOCMODS (0-based offsets):
+            //   [0..1] => "10" (RRC_TAPE_RECORD_ID)
+            //   [2..3] => PD-OIL-OLCO-DISPOSITION-CODE  (PIC 9(02))
+            //   [4..8] => PD-OIL-OLCO-DISPOSITION-AMOUNT (S9(09) COMP-3, 5 bytes)
+            //   [9..end] => filler
+
+            // 3) Parse the 2-digit disposition code
+            string codeStr = encoding.GetString(recordBytes, 2, 2);
+            if (short.TryParse(codeStr, out short codeVal))
+                record.PdOilOlcoDispositionCode = codeVal;
+
+            // 4) Decode the disposition amount (5 bytes COMP-3)
+            record.PdOilOlcoDispositionAmt = DecodeComp3(recordBytes, 4, 5);
+
+            return record;
+        }
+
+        //09
+        public static PdocmprdRecord ExtractPdocmprd09(
+        string recordId,
+        Encoding encoding,
+        byte[] recordBytes)
+        {
+            // 1) Validate
+            if (recordId != "09")
+            {
+                throw new InvalidOperationException(
+                    $"Not a PDOCMPRD record. Expected '09', got '{recordId}'.");
+            }
+
+            var record = new PdocmprdRecord();
+
+            // Per the PDF snippet (0-based offsets):
+            //   [0..1]   => "09" (RRC_TAPE_RECORD-ID)
+            //   [2]      => filler or spacing
+            //   [3..7]   => PD-OIL-COMM-PRODUCTION-AMOUNT (S9(09) COMP-3, 5 bytes)
+            //   [8]      => PD-OLCO-REMOVED-CM-INACTV-DISC (X(1))
+            //   [9]      => PD-OLCO-REMOVED-NOT-SPEC-DISC  (X(1))
+            //   [10]     => PD-OLCO-REMOVED-OUT-OF-BALANCE (X(1))
+            //   [11..16] => filler
+            //   [17]     => PD-OIL-CM-FILED-BY-EDI-FLG (X(1))
+            //   [18..20] => PD-OIL-COMM-BATCH-NUMBER  (X(3))
+            //   [21..24] => PD-OIL-COMM-ITEM-NUMBER   (9(4))
+            //   [25..28] => PD-OIL-COMM-POSTING-YEAR  (9(4))
+            //   [29..30] => PD-OIL-COMM-POSTING-MONTH (9(2))
+            //   [31..32] => PD-OIL-COMM-POSTING-DAY   (9(2))
+            //   [33]     => PD-OLCO-REMOVED-LSE-SEV-DISC  (X(1))
+            //   [34]     => PD-OLCO-REMOVED-OTHER-DISC     (X(1))
+            //   [35]     => PD-OLCO-REMOVED-LOST-OIL-DISC   (X(1))
+            //   [36]     => PD-OLCO-REMOVED-CIRC-OIL-DISC   (X(1))
+            //   [37]     => PD-OIL-CM-CORRECTED-RPT-FLAG    (X(1))
+            //   [38]     => PD-OLCO-REMOVED-CODE-6-DISC     (X(1))
+            //   [39]     => PD-OLCO-REMOVED-R-3-DISC        (X(1))
+            //   [40]     => PD-OLCO-REMOVED-NET-OIL-DISC    (X(1))
+            //   [41..end]=> filler (RRC-TAPE-FILLER)
+
+            // 2) Decode production amount (offset 3..7, 5 bytes)
+            record.PdOilCommProductionAmt = DecodeComp3(recordBytes, 3, 5);
+
+            // 3) Single-char flags
+            record.PdOlcoRemovedCmInactvDisc = encoding.GetString(recordBytes, 8, 1);
+            record.PdOlcoRemovedNotSpecDisc = encoding.GetString(recordBytes, 9, 1);
+            record.PdOlcoRemovedOutOfBalance = encoding.GetString(recordBytes, 10, 1);
+
+            // [11..16] => filler
+
+            record.PdOilCmFiledByEdiFlag = encoding.GetString(recordBytes, 17, 1);
+
+            // 4) Batch/Item Number
+            record.PdOilCommBatchNumber = encoding.GetString(recordBytes, 18, 3);
+
+            string itemNumberStr = encoding.GetString(recordBytes, 21, 4);
+            if (int.TryParse(itemNumberStr, out int parsedItem))
+                record.PdOilCommItemNumber = parsedItem;
+
+            // 5) Posting Date
+            string yearStr = encoding.GetString(recordBytes, 25, 4);
+            string monthStr = encoding.GetString(recordBytes, 29, 2);
+            string dayStr = encoding.GetString(recordBytes, 31, 2);
+
+            if (short.TryParse(yearStr, out short parsedYear))
+                record.PdOilCommPostingYear = parsedYear;
+            if (byte.TryParse(monthStr, out byte parsedMonth))
+                record.PdOilCommPostingMonth = parsedMonth;
+            if (byte.TryParse(dayStr, out byte parsedDay))
+                record.PdOilCommPostingDay = parsedDay;
+
+            // 6) Additional single-char flags
+            record.PdOlcoRemovedLseSevDisc = encoding.GetString(recordBytes, 33, 1);
+            record.PdOlcoRemovedOtherDisc = encoding.GetString(recordBytes, 34, 1);
+            record.PdOlcoRemovedLostOilDisc = encoding.GetString(recordBytes, 35, 1);
+            record.PdOlcoRemovedCircOilDisc = encoding.GetString(recordBytes, 36, 1);
+
+            record.PdOilCmCorrectedRptFlag = encoding.GetString(recordBytes, 37, 1);
+            record.PdOlcoRemovedCode6Disc = encoding.GetString(recordBytes, 38, 1);
+            record.PdOlcoRemovedR3Disc = encoding.GetString(recordBytes, 39, 1);
+            record.PdOlcoRemovedNetOilDisc = encoding.GetString(recordBytes, 40, 1);
+
+            return record;
+        }
+
+        //08
+        public static PdocmpmtRecord ExtractPdocmpmt08(
+        string recordId,
+        Encoding encoding,
+        byte[] recordBytes)
+        {
+            // 1) Validate
+            if (recordId != "08")
+            {
+                throw new InvalidOperationException(
+                    $"Not a PDOCMPMT record. Expected '08', got '{recordId}'.");
+            }
+
+            // 2) Create the entity
+            var record = new PdocmpmtRecord();
+
+            // According to the PDF snippet for PDOCMPMT (0-based offsets):
+            //   [0..1]  => "08" (RRC_TAPE_RECORD_ID)
+            //   [2..3]  => PD-OIL-COMMINGLE-DISTRICT (PIC 9(2))
+            //   [4..8]  => PD-OIL-COMMINGLE-NUMBER   (PIC 9(5))
+            //   [9..13] => PD-OIL-COMMINGLE-END-BALANCE (S9(09) COMP-3, 5 bytes)
+            //   [14..end] => filler
+
+            // 3) Parse the district
+            string districtStr = encoding.GetString(recordBytes, 2, 2);
+            if (short.TryParse(districtStr, out short distVal))
+                record.PdOilCommingleDistrict = distVal;
+
+            // 4) Parse the permit number
+            string permitNumStr = encoding.GetString(recordBytes, 4, 5);
+            if (int.TryParse(permitNumStr, out int permitVal))
+                record.PdOilCommingleNumber = permitVal;
+
+            // 5) Decode the end balance (COMP-3)
+            record.PdOilCommingleEndBalance = DecodeComp3(recordBytes, 9, 5);
+
+            return record;
         }
 
         //07
