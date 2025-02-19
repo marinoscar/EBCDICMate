@@ -24,49 +24,72 @@ namespace EBCDIC
             switch (recordId)
             {
                 case "01":
+                    _logger.LogInformation("Processing PDROOT record.");
                     ExtractPdrootOil01(recordId, encoding, recordBytes);
                     break;
                 case "02":
+                    _logger.LogInformation("Processing PDORPTCY record.");
                     ExtractPdorptcy02(recordId, encoding, recordBytes);
                     break;
                 case "03":
+                    _logger.LogInformation("Processing PDOPROD record.");
                     ExtractPdoprod03(recordId, encoding, recordBytes);
                     break;
                 case "04":
+                    _logger.LogInformation("Processing PDORMVDS record.");
                     ExtractPdormvds04(recordId, encoding, recordBytes);
                     break;
                 case "05":
+                    _logger.LogInformation("Processing PDODSP record.");
                     ExtractPdodsp05(recordId, encoding, recordBytes);
                     break;
                 case "06":
+                    _logger.LogInformation("Processing PDOCSHDS record.");
                     ExtractPdocshds06(recordId, encoding, recordBytes);
                     break;
                 case "07":
+                    _logger.LogInformation("Processing PDOPRPV record.");
                     ExtractPdoprpv07(recordId, encoding, recordBytes);
                     break;
                 case "08":
+                    _logger.LogInformation("Processing PDOCMPMT record.");
                     ExtractPdocmpmt08(recordId, encoding, recordBytes);
                     break;
                 case "09":
+                    _logger.LogInformation("Processing PDOCMPRD record.");
                     ExtractPdocmprd09(recordId, encoding, recordBytes);
                     break;
                 case "10":
+                    _logger.LogInformation("Processing PDOCMODS record.");
                     ExtractPdocmods10(recordId, encoding, recordBytes);
                     break;
                 case "11":
+                    _logger.LogInformation("Processing PDOOEB record.");
                     ExtractPdooeb11(recordId, encoding, recordBytes);
                     break;
                 case "12":
+                    _logger.LogInformation("Processing PDOCMPV record.");
                     ExtractPdocmpv12(recordId, encoding, recordBytes);
                     break;
                 case "13":
+                    _logger.LogInformation("Processing PDOPRVAL record.");
                     ExtractPdoprval13(recordId, encoding, recordBytes);
                     break;
                 case "14":
+                    _logger.LogInformation("Processing PDGRPTCY record.");
                     ExtractPdgrptcy14(recordId, encoding, recordBytes);
                     break;
                 case "15":
+                    _logger.LogInformation("Processing PDGPROD record.");
                     ExtractPdgprod15(recordId, encoding, recordBytes);
+                    break;
+                case "22":
+                    _logger.LogInformation("Processing PDREMARK record.");
+                    ExtractPdremark22(recordId, encoding, recordBytes);
+                    break;
+                case "23":
+                    _logger.LogInformation("Processing PDODSPRK record.");
+                    ExtractPdodsprk23(recordId, encoding, recordBytes);
                     break;
                 // Add more cases for other record types
                 default:
@@ -74,6 +97,101 @@ namespace EBCDIC
                     _logger.LogWarning($"Unknown record ID: {recordId}");
                     break;
             }
+        }
+
+        //23
+        public static PdodsprkRecord ExtractPdodsprk23(
+        string recordId,
+        Encoding encoding,
+        byte[] recordBytes)
+        {
+            // 1) Validate
+            if (recordId != "23")
+            {
+                throw new InvalidOperationException(
+                    $"Not a PDODSPRK record. Expected '23', got '{recordId}'.");
+            }
+
+            // 2) Create the entity
+            var record = new PdodsprkRecord();
+
+            // Offsets based on the PDF snippet (assuming 0-based):
+            //   [0..1]   => "23"
+            //   [2..3]   => PD-OIL-RMK-CENTURY (2 digits)
+            //   [4..5]   => PD-OIL-RMK-YEAR (2 digits)
+            //   [6..7]   => PD-OIL-RMK-MONTH (2 digits)
+            //   [8..9]   => PD-OIL-RMK-DAY (2 digits)
+            //   [10..49] => PD-OIL-DISP-REMARK-TEXT (40 chars)
+            //   [50..61] => filler (12 bytes)
+            //   [62..]   => optional RRC-TAPE-FILLER (ex: 40 bytes)
+            // Adjust as needed if your record is exactly 60 or 102 in length.
+
+            // 3) Parse date fields
+            // Century
+            string centuryStr = encoding.GetString(recordBytes, 2, 2);
+            if (short.TryParse(centuryStr, out short cVal))
+                record.PdOilRmkCentury = cVal;
+
+            // Year
+            string yearStr = encoding.GetString(recordBytes, 4, 2);
+            if (short.TryParse(yearStr, out short yVal))
+                record.PdOilRmkYear = yVal;
+
+            // Month
+            string monthStr = encoding.GetString(recordBytes, 6, 2);
+            if (byte.TryParse(monthStr, out byte mVal))
+                record.PdOilRmkMonth = mVal;
+
+            // Day
+            string dayStr = encoding.GetString(recordBytes, 8, 2);
+            if (byte.TryParse(dayStr, out byte dVal))
+                record.PdOilRmkDay = dVal;
+
+            // 4) Parse 40-char remark text
+            int textLen = Math.Min(40, recordBytes.Length - 10);
+            if (textLen < 0) textLen = 0; // safety net
+            record.PdOilDispRemarkText = encoding
+                .GetString(recordBytes, 10, textLen)
+                .TrimEnd();
+
+            // filler from [50..end], ignoring
+            return record;
+        }
+
+        //22
+        public static PdremarkRecord ExtractPdremark22(
+        string recordId,
+        Encoding encoding,
+        byte[] recordBytes)
+        {
+            // 1) Validate
+            if (recordId != "22")
+            {
+                throw new InvalidOperationException(
+                    $"Not a PDREMARK record. Expected '22', got '{recordId}'.");
+            }
+
+            var record = new PdremarkRecord();
+
+            // 2) Parse PD_REMARK_NUMBER (3 digits) from offset [2..4]
+            string remarkNumStr = encoding.GetString(recordBytes, 2, 3);
+            if (int.TryParse(remarkNumStr, out int remarkNum))
+                record.PdRemarkNumber = remarkNum;
+
+            // 3) Parse PD_REMARK_LINE_NO (2 digits) from offset [5..6]
+            string lineNoStr = encoding.GetString(recordBytes, 5, 2);
+            if (int.TryParse(lineNoStr, out int lineNo))
+                record.PdRemarkLineNo = lineNo;
+
+            // 4) Parse PD_REMARK_TEXT (70 chars) from offset [7..76]
+            // Make sure we don't exceed the recordBytes length, in case there's a mismatch
+            int textLen = Math.Min(70, recordBytes.Length - 7);
+            if (textLen < 0) textLen = 0; // safety
+
+            record.PdRemarkText = encoding.GetString(recordBytes, 7, textLen).TrimEnd();
+
+            // filler from [77..end], ignoring
+            return record;
         }
 
         //12
