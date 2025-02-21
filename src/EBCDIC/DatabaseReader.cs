@@ -1,6 +1,11 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using EBCDIC.Entities;
+using Luval.DbConnectionMate;
+using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Data;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
@@ -29,34 +34,48 @@ namespace EBCDIC
         /// <param name="processRecord">Action to process each record. Takes record ID and record bytes as parameters.</param>
         /// <exception cref="FileNotFoundException">Thrown when the file does not exist.</exception>
         /// <exception cref="ArgumentNullException">Thrown when processRecord is null.</exception>
-        public void WhileReadingRecord(Action<string, Encoding, byte[]> processRecord)
+        public void WhileReadingRecord(Func<string, Encoding, byte[], IDbScriptRecord> processRecord)
         {
             if (!_fileInfo.Exists) throw new FileNotFoundException($"File {_fileInfo.FullName} not found.");
             if (processRecord == null) throw new ArgumentNullException(nameof(processRecord));
             var rowCount = 0;
+            var scriptCount = 0;
             var sw = new Stopwatch();
+            var sb = new StringBuilder();
             sw.Start();
             try
             {
-                using (FileStream fs = new FileStream(_fileInfo.FullName, FileMode.Open, FileAccess.Read))
+                using (var connection = new SqlConnection(GetConnectionString()))
                 {
-                    using (BinaryReader br = new BinaryReader(fs))
+                    connection.Open();
+                    using (FileStream fs = new FileStream(_fileInfo.FullName, FileMode.Open, FileAccess.Read))
                     {
-                        while (br.BaseStream.Position < br.BaseStream.Length)
+                        using (BinaryReader br = new BinaryReader(fs))
                         {
-                            // Make sure we don't read past the end if the file is shorter
-                            if (br.BaseStream.Length - br.BaseStream.Position < _recordLength)
+                            while (br.BaseStream.Position < br.BaseStream.Length)
                             {
-                                _logger.LogWarning("Incomplete record at end of file.");
-                                break;
+                                // Make sure we don't read past the end if the file is shorter
+                                if (br.BaseStream.Length - br.BaseStream.Position < _recordLength)
+                                {
+                                    _logger.LogWarning("Incomplete record at end of file.");
+                                    break;
+                                }
+
+                                byte[] recordBytes = br.ReadBytes(_recordLength);
+
+                                string recordId = _encoding.GetString(recordBytes, 0, 2);
+
+                                var recordScript = processRecord(recordId, _encoding, recordBytes);
+                                sb.AppendLine(recordScript.ToSqlInsert());
+                                rowCount++;
+                                scriptCount++;
+                                if(scriptCount > 100)
+                                {
+                                    RunSql(sb.ToString(), connection);
+                                    scriptCount = 0;
+                                    sb.Clear();
+                                }
                             }
-
-                            byte[] recordBytes = br.ReadBytes(_recordLength);
-
-                            string recordId = _encoding.GetString(recordBytes, 0, 2);
-
-                            processRecord(recordId, _encoding, recordBytes);
-                            rowCount++;
                         }
                     }
                 }
@@ -69,6 +88,28 @@ namespace EBCDIC
                 _logger.LogError(ex, "An error occurred while reading the file.");
                 throw;
             }
+        }
+
+        private void RunSql(string sql, SqlConnection connection)
+        {
+            using (var command = new SqlCommand(sql, connection))
+            {
+                try
+                {
+                    _logger.LogDebug(sql);
+                    command.ExecuteNonQuery();
+                }
+                catch (Exception)
+                {
+                    _logger.LogError("Failed to run:\n" + sql + "\n");
+                    throw;
+                }
+            }
+        }
+
+        private static string GetConnectionString()
+        {
+            return "Server=.\\SQLEXPRESS;Database=EBCDIC;Integrated Security=True;TrustServerCertificate=True";
         }
     }
 }

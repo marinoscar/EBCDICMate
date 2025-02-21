@@ -26,15 +26,16 @@ namespace EBCDIC
 
             var productionProcessor = new ProductionExtractor(logger);
 
-            //Encoding.GetEncoding(37)
+            var enc = Encoding.GetEncoding(37);
+            //var enc = Encoding.GetEncoding("IBM037");
             var productionReader = new DatabaseReader(
                 new FileInfo(args[0]), 
-                Encoding.GetEncoding("IBM037"), RECORD_SIZE, 
+                enc, RECORD_SIZE, 
                 logger);
 
             productionReader.WhileReadingRecord((recordId, encoding, recordBytes) =>
             {
-                productionProcessor.ProcessRecord(recordId, encoding, recordBytes);
+                return productionProcessor.ProcessRecord(recordId, encoding, recordBytes);
             });
 
             Console.WriteLine("Finished processing file.");

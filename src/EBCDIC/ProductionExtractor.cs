@@ -19,81 +19,82 @@ namespace EBCDIC
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        public void ProcessRecord(string recordId, Encoding encoding, byte[] recordBytes)
+        public IDbScriptRecord ProcessRecord(string recordId, Encoding encoding, byte[] recordBytes)
         {
+            IDbScriptRecord result = default!;
             switch (recordId)
             {
                 case "01":
                     _logger.LogInformation("Processing PDROOT record.");
-                    ExtractPdrootOil01(recordId, encoding, recordBytes);
+                    result = ExtractPdrootOil01(recordId, encoding, recordBytes);
                     break;
                 case "02":
                     _logger.LogInformation("Processing PDORPTCY record.");
-                    ExtractPdorptcy02(recordId, encoding, recordBytes);
+                    result = ExtractPdorptcy02(recordId, encoding, recordBytes);
                     break;
                 case "03":
                     _logger.LogInformation("Processing PDOPROD record.");
-                    ExtractPdoprod03(recordId, encoding, recordBytes);
+                    result = ExtractPdoprod03(recordId, encoding, recordBytes);
                     break;
                 case "04":
                     _logger.LogInformation("Processing PDORMVDS record.");
-                    ExtractPdormvds04(recordId, encoding, recordBytes);
+                    result = ExtractPdormvds04(recordId, encoding, recordBytes);
                     break;
                 case "05":
                     _logger.LogInformation("Processing PDODSP record.");
-                    ExtractPdodsp05(recordId, encoding, recordBytes);
+                    result = ExtractPdodsp05(recordId, encoding, recordBytes);
                     break;
                 case "06":
                     _logger.LogInformation("Processing PDOCSHDS record.");
-                    ExtractPdocshds06(recordId, encoding, recordBytes);
+                    result = ExtractPdocshds06(recordId, encoding, recordBytes);
                     break;
                 case "07":
                     _logger.LogInformation("Processing PDOPRPV record.");
-                    ExtractPdoprpv07(recordId, encoding, recordBytes);
+                    result = ExtractPdoprpv07(recordId, encoding, recordBytes);
                     break;
                 case "08":
                     _logger.LogInformation("Processing PDOCMPMT record.");
-                    ExtractPdocmpmt08(recordId, encoding, recordBytes);
+                    result = ExtractPdocmpmt08(recordId, encoding, recordBytes);
                     break;
                 case "09":
                     _logger.LogInformation("Processing PDOCMPRD record.");
-                    ExtractPdocmprd09(recordId, encoding, recordBytes);
+                    result = ExtractPdocmprd09(recordId, encoding, recordBytes);
                     break;
                 case "10":
                     _logger.LogInformation("Processing PDOCMODS record.");
-                    ExtractPdocmods10(recordId, encoding, recordBytes);
+                    result = ExtractPdocmods10(recordId, encoding, recordBytes);
                     break;
                 case "11":
                     _logger.LogInformation("Processing PDOOEB record.");
-                    ExtractPdooeb11(recordId, encoding, recordBytes);
+                    result = ExtractPdooeb11(recordId, encoding, recordBytes);
                     break;
                 case "12":
                     _logger.LogInformation("Processing PDOCMPV record.");
-                    ExtractPdocmpv12(recordId, encoding, recordBytes);
+                    result = ExtractPdocmpv12(recordId, encoding, recordBytes);
                     break;
                 case "13":
                     _logger.LogInformation("Processing PDOPRVAL record.");
-                    ExtractPdoprval13(recordId, encoding, recordBytes);
+                    result = ExtractPdoprval13(recordId, encoding, recordBytes);
                     break;
                 case "14":
                     _logger.LogInformation("Processing PDGRPTCY record.");
-                    ExtractPdgrptcy14(recordId, encoding, recordBytes);
+                    result = ExtractPdgrptcy14(recordId, encoding, recordBytes);
                     break;
                 case "15":
                     _logger.LogInformation("Processing PDGPROD record.");
-                    ExtractPdgprod15(recordId, encoding, recordBytes);
+                    result = ExtractPdgprod15(recordId, encoding, recordBytes);
                     break;
                 case "22":
                     _logger.LogInformation("Processing PDREMARK record.");
-                    ExtractPdremark22(recordId, encoding, recordBytes);
+                    result = ExtractPdremark22(recordId, encoding, recordBytes);
                     break;
                 case "23":
                     _logger.LogInformation("Processing PDODSPRK record.");
-                    ExtractPdodsprk23(recordId, encoding, recordBytes);
+                    result = ExtractPdodsprk23(recordId, encoding, recordBytes);
                     break;
                 case "24":
                     _logger.LogInformation("Processing PDOCMGRK record.");
-                    ExtractPdocmgrk24(recordId, encoding, recordBytes);
+                    result = ExtractPdocmgrk24(recordId, encoding, recordBytes);
                     break;
                 // Add more cases for other record types
                 default:
@@ -101,6 +102,7 @@ namespace EBCDIC
                     _logger.LogWarning($"Unknown record ID: {recordId}");
                     break;
             }
+            return result;
         }
 
         //24
@@ -721,6 +723,7 @@ namespace EBCDIC
                 result.ItemNumber = parsedItemNumber;
 
             // 7) Posting Year (offset 29, length 4)
+
             string postingYearStr = encoding.GetString(recordBytes, 29, 4);
             if (short.TryParse(postingYearStr, out short parsedYear))
                 result.PostingYear = parsedYear;
@@ -1100,14 +1103,6 @@ namespace EBCDIC
             return value;
         }
 
-        private static string GetConnectionString()
-        {
-            return "Server=.\\SQLEXPRESS;Database=EBCDIC;Integrated Security=True;TrustServerCertificate=True";
-        }
-        private static IDbConnection GetConnection()
-        {
-            return new SqlConnection(GetConnectionString());
-        }
         private static T RunSync<T>(Func<Task<T>> func)
         {
             return Task.Run(func).GetAwaiter().GetResult();

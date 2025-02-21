@@ -14,9 +14,9 @@ namespace EBCDIC.Entities
         public decimal CasingheadGasLift { get; set; }       // from COMP-3
         public string BatchNumber { get; set; }              // X(3)
         public int ItemNumber { get; set; }                  // 9(4)
-        public short PostingYear { get; set; }               // 9(4)
-        public byte PostingMonth { get; set; }               // 9(2)
-        public byte PostingDay { get; set; }                 // 9(2)
+        public int PostingYear { get; set; }               // 9(4)
+        public int PostingMonth { get; set; }               // 9(2)
+        public int PostingDay { get; set; }                 // 9(2)
         public string FiledByEdiFlag { get; set; }           // 'Y' or 'N'
 
         /// <summary>
